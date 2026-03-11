@@ -112,9 +112,12 @@ class WeatherRepository {
 
   final http.Client _client;
 
-  final String _apiKey = dotenv.env['OPENWEATHER_API_KEY'];
-    
-    
+  String get _apiKey {
+    final key = dotenv.env['OPENWEATHER_API_KEY'];
+    if (key == null) {
+      throw Exception();
+    }
+    return key;
   }
 
   Future<WeatherData> fetchWeather(String city) async {
@@ -128,17 +131,9 @@ class WeatherRepository {
 
     final response = await _client.get(uri);
 
-    if (response.statusCode == 200) {
-      return WeatherData.fromJson(
-        jsonDecode(response.body) as Map<String, dynamic>,
-      );
-    } else if (response.statusCode == 404) {
-      throw Exception('City "$city" not found.');
-    } else if (response.statusCode == 401) {
-      throw Exception('Invalid API key. Check your OPENWEATHER_API_KEY.');
-    } else {
-      throw Exception('Failed to fetch weather (HTTP ${response.statusCode}).');
-    }
+    return WeatherData.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
   }
 
   Future<List<WeatherData>> fetchMultiple(List<String> cities) async {
@@ -219,7 +214,6 @@ class WeatherController extends ChangeNotifier {
 
   Future<void> addCity(String city) async {
     final normalised = city.trim();
-    if (normalised.isEmpty) return;
 
     try {
       final data = await _repository.fetchWeather(normalised);
@@ -228,7 +222,6 @@ class WeatherController extends ChangeNotifier {
       final alreadyExists = _state.weatherList.any(
         (w) => w.cityName.toLowerCase() == data.cityName.toLowerCase(),
       );
-      if (alreadyExists) return;
 
       _cities.add(data.cityName);
       _state = _state.copyWith(
@@ -289,7 +282,6 @@ class _WeatherDashboardScreenState extends State<WeatherDashboardScreen> {
 
   Future<void> _onAddCity() async {
     final city = _searchController.text.trim();
-    if (city.isEmpty) return;
     _searchController.clear();
     await _controller.addCity(city);
   }
@@ -337,8 +329,8 @@ class _WeatherDashboardScreenState extends State<WeatherDashboardScreen> {
           onSubmitted: (_) => _onAddCity(),
           onAdd: _onAddCity,
         ),
-        if (state.errorMessage != null)
-          _ErrorBanner(message: state.errorMessage!),
+
+        _ErrorBanner(message: state.errorMessage!),
         Expanded(
           child: switch (state.status) {
             LoadingStatus.idle || LoadingStatus.loading =>
